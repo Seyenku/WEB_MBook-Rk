@@ -1,0 +1,38 @@
+﻿@{
+    ViewData["Title"] = "Login";
+}
+
+@* Добавляем необходимые тег-хелперы *@
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<h2>@ViewData["Title"]</h2>
+<form method="post" asp-action="Login">
+    <div class="form-group">
+        <label for="login">Login:</label>
+        <input type="text" class="form-control" id="login" name="login" required>
+    </div>
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" class="form-control" id="password" name="password" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
+</form>
+
+<div>
+    <a asp-action="Register">Register as a new user</a>
+</div>
+
+@if (ViewData.ModelState.ErrorCount > 0)
+{
+    <div class="alert alert-danger mt-3">
+        <ul>
+            @foreach (var key in ViewData.ModelState.Keys)
+            {
+                @foreach (var error in ViewData.ModelState[key].Errors)
+                {
+                    <li>@error.ErrorMessage</li>
+                }
+            }
+        </ul>
+    </div>
+}
