@@ -2,16 +2,23 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
 namespace MBook_Rk
 {
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string, IdentityUserClaim<string>, ApplicationUserRole, IdentityUserLogin<string>, IdentityRoleClaim<string>, IdentityUserToken<string>>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Отключаем создание стандартных таблиц Identity
+            builder.Ignore<IdentityUserClaim<string>>();
+            builder.Ignore<IdentityUserLogin<string>>();
+            builder.Ignore<IdentityRoleClaim<string>>();
+            builder.Ignore<IdentityUserToken<string>>();
 
             // Переопределение таблицы пользователей
             builder.Entity<ApplicationUser>(entity =>
@@ -20,72 +27,52 @@ namespace MBook_Rk
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.UserName).HasColumnName("login").HasMaxLength(50);
                 entity.Property(e => e.PasswordHash).HasColumnName("pass");
-                entity.Property(e => e.Role);
-                entity.Property(e => e.NormalizedUserName).HasColumnName("NormalizedUserName").HasMaxLength(256);
-                entity.Property(e => e.Email).HasColumnName("Email").HasMaxLength(256);
-                entity.Property(e => e.NormalizedEmail).HasColumnName("NormalizedEmail").HasMaxLength(256);
-                entity.Property(e => e.EmailConfirmed).HasColumnName("EmailConfirmed");
-                entity.Property(e => e.SecurityStamp).HasColumnName("SecurityStamp");
-                entity.Property(e => e.ConcurrencyStamp).HasColumnName("ConcurrencyStamp");
-                entity.Property(e => e.PhoneNumber).HasColumnName("PhoneNumber");
-                entity.Property(e => e.PhoneNumberConfirmed).HasColumnName("PhoneNumberConfirmed");
-                entity.Property(e => e.TwoFactorEnabled).HasColumnName("TwoFactorEnabled");
-                entity.Property(e => e.LockoutEnd).HasColumnName("LockoutEnd");
-                entity.Property(e => e.LockoutEnabled).HasColumnName("LockoutEnabled");
-                entity.Property(e => e.AccessFailedCount).HasColumnName("AccessFailedCount");
+                entity.Property(u => u.NormalizedUserName).HasColumnName("NormalizedUserName").IsRequired(false);
+                entity.Ignore(e => e.Email); // Отключаем свойства, которые не используются
+                entity.Ignore(e => e.NormalizedEmail);
+                entity.Ignore(e => e.EmailConfirmed);
+                entity.Ignore(e => e.SecurityStamp);
+                entity.Ignore(e => e.ConcurrencyStamp);
+                entity.Ignore(e => e.PhoneNumber);
+                entity.Ignore(e => e.PhoneNumberConfirmed);
+                entity.Ignore(e => e.TwoFactorEnabled);
+                entity.Ignore(e => e.LockoutEnd);
+                entity.Ignore(e => e.LockoutEnabled);
+                entity.Ignore(e => e.AccessFailedCount);
             });
 
             // Переопределение таблицы ролей
-            builder.Entity<IdentityRole<int>>(entity =>
+            builder.Entity<ApplicationRole>(entity =>
             {
                 entity.ToTable("roles");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(256);
-                entity.Property(e => e.NormalizedName).HasColumnName("normalized_name").HasMaxLength(256);
-                entity.Property(e => e.ConcurrencyStamp).HasColumnName("concurrency_stamp");
+                entity.Property(r => r.NormalizedName).HasColumnName("NormalizedName").IsRequired(false);
+                entity.Ignore(e => e.ConcurrencyStamp);
             });
 
-            // Настройка таблиц для дополнительных сущностей Identity
-            builder.Entity<IdentityUserClaim<int>>(entity =>
+            // Переопределение таблицы связи между пользователями и ролями
+            builder.Entity<ApplicationUserRole>(entity =>
             {
-                entity.ToTable("UserClaims");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.UserId).IsRequired();
-                entity.Property(e => e.ClaimType);
-                entity.Property(e => e.ClaimValue);
-            });
-
-            builder.Entity<IdentityUserLogin<int>>(entity =>
-            {
-                entity.ToTable("UserLogins");
-                entity.HasKey(e => new { e.LoginProvider, e.ProviderKey });
-                entity.Property(e => e.ProviderDisplayName);
-                entity.Property(e => e.UserId).IsRequired();
-            });
-
-            builder.Entity<IdentityUserToken<int>>(entity =>
-            {
-                entity.ToTable("UserTokens");
-                entity.HasKey(e => new { e.UserId, e.LoginProvider, e.Name });
-                entity.Property(e => e.Value);
-            });
-
-            builder.Entity<IdentityRoleClaim<int>>(entity =>
-            {
-                entity.ToTable("RoleClaims");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.RoleId).IsRequired();
-                entity.Property(e => e.ClaimType);
-                entity.Property(e => e.ClaimValue);
-            });
-
-            builder.Entity<IdentityUserRole<int>>(entity =>
-            {
-                entity.ToTable("UserRoles");
+                entity.ToTable("user_roles");
                 entity.HasKey(e => new { e.UserId, e.RoleId });
-                entity.Property(e => e.UserId).IsRequired();
-                entity.Property(e => e.RoleId).IsRequired();
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.UserRoles)
+                    .HasForeignKey(d => d.UserId);
+                entity.HasOne(d => d.Role)
+                    .WithMany(p => p.UserRoles)
+                    .HasForeignKey(d => d.RoleId);
             });
+
+            // Добавляем связь между пользователями и ролями
+            builder.Entity<ApplicationUser>()
+                .HasMany(e => e.UserRoles)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId);
+            builder.Entity<ApplicationRole>()
+                .HasMany(e => e.UserRoles)
+                .WithOne(e => e.Role)
+                .HasForeignKey(e => e.RoleId);
         }
     }
 }

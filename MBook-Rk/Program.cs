@@ -1,7 +1,10 @@
 using MBook_Rk;
 using MBook_Rk.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using System.Threading.Tasks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,11 +12,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Добавление Identity
-builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
+// Добавление Identity с использованием кастомных классов
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
+// Регистрация кастомного RoleManager
+builder.Services.AddScoped<RoleManager<ApplicationRole>>();
+builder.Services.AddScoped<CustomRoleManager>();
+
+// Регистрация кастомного UserManager
+builder.Services.AddScoped<UserManager<ApplicationUser>>();
+builder.Services.AddScoped<CustomUserManager>();
+
+// Конфигурация куки для аутентификации
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
@@ -30,10 +42,8 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<ApplicationDbContext>();
-
     // Применение миграций
     context.Database.Migrate();
-
     // Инициализация ролей после настройки всех сервисов
     await SeedRoles.InitializeRoles(services);
 }
